@@ -1,0 +1,7 @@
+.idea/
+*.o
+cmake-build-debug/
+CMakeLists.txt
+src/qt5/release/
+src/qt5/debug/
+/riscos-progs/RpcemuHelper/header.h

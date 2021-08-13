@@ -1,0 +1,24 @@
+title-string: RPCEmuHelper
+
+help-string: RPCEmuHelper 0.1
+
+module-is-runnable:
+
+initialisation-code: mod_init
+
+finalisation-code: mod_final
+
+event-handler: EventV_event 10 11
+
+service-call-handler: mod_service &11
+
+command-keyword-table: mod_command_handler
+     rpcemuhelper_start(min-args: 0,
+                   max-args: 0,
+                   help-text: "Syntax: *rpcemuhelper_start\nStart clipboard monitoring task\n"),
+     rpcemuhelper_start_task(min-args: 0,
+                   max-args: 0,
+                   help-text: "This command is for internal use by the this module"),
+     rpcemuhelper_debug(min-args: 1,
+                  max-args: 1,
+                  help-text: "Syntax: *rpcemuhelper_debug 0|1\nTurn on/off debug output to !Reporter\n")
