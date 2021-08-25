@@ -126,6 +126,7 @@ ConfigureDialog::ConfigureDialog(Emulator &emulator, Config *config_copy, Model 
     startup_shutdown_group_box = new QGroupBox("Startup and Shutdown options");
     startup_shutdown_group_box->setLayout(startup_shutdown_vbox);
 
+#if !defined(Q_OS_MACOS)
     // Create Special Key widgets
     special_key_1 = new QRadioButton("Ctrl-End");
     special_key_2 = new QRadioButton("Ctrl-Shift-Enter");
@@ -140,7 +141,7 @@ ConfigureDialog::ConfigureDialog(Emulator &emulator, Config *config_copy, Model 
     special_key_vbox->addWidget(special_key_3);
     special_key_box = new QGroupBox("Special key (exit from Fullscreen, turn off mouse capture)");
     special_key_box->setLayout(special_key_vbox);
-
+#endif
 
     // Create Buttons
 	buttons_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -153,8 +154,12 @@ ConfigureDialog::ConfigureDialog(Emulator &emulator, Config *config_copy, Model 
 	grid->addWidget(sound_checkbox, 1, 1);
 	grid->addWidget(refresh_group_box, 2, 0, 1, 2); // span 2 columns
     grid->addWidget(startup_shutdown_group_box, 3,0,1,2);
+#if defined(Q_OS_MACOS)
+	grid->addWidget(buttons_box, 4, 0, 1, 2);       // span 2 columns
+#else
     grid->addWidget(special_key_box, 4,0,1,2);
-	grid->addWidget(buttons_box, 5, 0, 1, 2);       // span 2 columns
+    grid->addWidget(buttons_box, 5, 0, 1, 2);       // span 2 columns
+#endif
 
 	// Connect actions to widgets
 	connect(refresh_slider, &QSlider::valueChanged, this, &ConfigureDialog::slider_moved);
@@ -238,10 +243,13 @@ ConfigureDialog::dialog_accepted()
     } else {
         new_config.exit_on_shutdown = 0;
     }
+
+#if !defined(Q_OS_MACOS)
     // Special key
     if(special_key_1->isChecked())   new_config.special_key = RPCEMU_SPECAIL_KEY_CTRL_END;
     if(special_key_2->isChecked())   new_config.special_key = RPCEMU_SPECAIL_KEY_CTRL_ALT_ENTER;
     if(special_key_3->isChecked())   new_config.special_key = RPCEMU_SPECAIL_KEY_ALT_END;
+#endif
 
 	// Video Refresh Rate
 	new_config.refresh = refresh_slider->value();
@@ -348,6 +356,8 @@ ConfigureDialog::applyConfig()
     } else {
         exit_on_shutdown_checkbox->setChecked(false);
     }
+
+#if !defined(Q_OS_MACOS)
     // Special key
     special_key_1->setChecked(false);
     special_key_2->setChecked(false);
@@ -358,6 +368,7 @@ ConfigureDialog::applyConfig()
         case   RPCEMU_SPECAIL_KEY_ALT_END: special_key_3->setChecked(true);   break;
         default: fatal("configuredialog.cpp: unhandled special key %u", config_copy->special_key);
     }
+#endif
 
 	// Video Refresh Rate
 	refresh_slider->setValue(config_copy->refresh);

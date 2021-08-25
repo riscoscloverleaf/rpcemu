@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "hostclipboard.h"
-#include "utf8riscos.h"
 #include "mem.h"
 #include "rpcemu.h"
 #include "network.h"

@@ -33,7 +33,12 @@
 
 #if defined(Q_OS_WIN32)
 #include "Windows.h"
-#endif /* Q_OS_WIN32 */ 
+#endif /* Q_OS_WIN32 */
+
+#if defined(Q_OS_MACOS)
+#include "macosx/events-macosx.h"
+#include "keyboard_macosx.h"
+#endif /* Q_OS_MACOS */
 
 #include "rpcemu.h"
 #include "keyboard.h"
@@ -43,7 +48,6 @@
 
 #define URL_MANUAL	"http://www.marutan.net/rpcemu/manual/"
 #define URL_WEBSITE	"http://www.marutan.net/rpcemu/"
-
 
 MainDisplay::MainDisplay(Emulator &emulator, QWidget *parent)
     : QWidget(parent),
@@ -69,6 +73,9 @@ MainDisplay::MainDisplay(Emulator &emulator, QWidget *parent)
 void
 MainDisplay::mouseMoveEvent(QMouseEvent *event)
 {
+    // Ignore mouse events if the application is terminating.
+    if (quited) return;
+
 	if((!pconfig_copy->mousehackon && mouse_captured) || full_screen) {
 		QPoint middle;
 
@@ -93,6 +100,9 @@ MainDisplay::mouseMoveEvent(QMouseEvent *event)
 void
 MainDisplay::mousePressEvent(QMouseEvent *event)
 {
+    // Ignore mouse events if the application is terminating.
+    if (quited) return;
+
 	// Handle turning on mouse capture in capture mouse mode
 	if(!pconfig_copy->mousehackon) {
 		if(!mouse_captured) {
@@ -113,6 +123,9 @@ MainDisplay::mousePressEvent(QMouseEvent *event)
 void
 MainDisplay::mouseReleaseEvent(QMouseEvent *event)
 {
+    // Ignore mouse events if the application is terminating.
+    if (quited) return;
+
 	if (event->button() & 7) {
 		emit this->emulator.mouse_release_signal(event->button() & 7);
 	}
@@ -446,6 +459,11 @@ MainWindow::release_held_keys()
 
 	// Clear the list of keys considered to be held in the host
 	held_keys.clear();
+
+#if defined(Q_OS_MACOS)
+    emit this->emulator.modifier_keys_reset_signal();
+#endif /* Q_OS_MACOS */
+
 }
 
 /**
@@ -548,52 +566,16 @@ MainWindow::keyPressEvent(QKeyEvent *event)
 	}
 	// Special case, check for Ctrl-End or Ctrl-Shift-Enter, our multi purpose do clever things key
 	if(isSpecialKey) {
-		if(full_screen) {
-			// Change Full Screen -> Windowed
-
-			display->set_full_screen(false);
-
-			int host_xsize, host_ysize;
-			display->get_host_size(host_xsize, host_ysize);
-			display->setFixedSize(host_xsize, host_ysize);
-
-			menuBar()->setVisible(true);
-			this->showNormal();
-			this->setFixedSize(this->sizeHint());
-
-			full_screen = false;
-
-			// Request redraw of display
-			display->update();
-			
-			// If we were in mousehack mode before entering fullscreen
-			// return to it now
-			if(reenable_mousehack) {
-				emit this->emulator.mouse_hack_signal();	
-			}
-			reenable_mousehack = false;
-			
-			// If we were in mouse capture mode before entering fullscreen
-			// and we hadn't captured the mouse, display the host cursor now
-			if(!config_copy.mousehackon && !mouse_captured) {
-				this->display->setCursor(Qt::ArrowCursor);
-			}
-			
-			return;
-		} else if(!pconfig_copy->mousehackon && mouse_captured) {
-			// Turn off mouse capture
-			mouse_captured = 0;
-
-			// show pointer in mouse capture mode when it's not been captured
-			this->display->setCursor(Qt::ArrowCursor);
-
-			return;
-		}
+        processMagicKeys();
 	}
 
 	// Regular case pass key press onto the emulator
 	if (!event->isAutoRepeat()) {
-		native_keypress_event(event->nativeScanCode());
+        #if defined(Q_OS_MACOS)
+                native_keypress_event(event->nativeVirtualKey(), event->nativeModifiers());
+        #else
+                native_keypress_event(event->nativeScanCode(), event->nativeModifiers());
+        #endif    /* Q_OS_MACOS */
 	}
 }
 
@@ -613,7 +595,11 @@ MainWindow::keyReleaseEvent(QKeyEvent *event)
 
 	// Regular case pass key release onto the emulator
 	if (!event->isAutoRepeat()) {
-		native_keyrelease_event(event->nativeScanCode());
+#if defined(Q_OS_MACOS)
+        native_keyrelease_event(event->nativeVirtualKey(), event->nativeModifiers());
+#else
+        native_keyrelease_event(event->nativeScanCode(), event->nativeModifiers());
+#endif    /* Q_OS_MACOS */
 	}
 }
 
@@ -623,8 +609,25 @@ MainWindow::keyReleaseEvent(QKeyEvent *event)
  * @param scan_code Native scan code of key
  */
 void
-MainWindow::native_keypress_event(unsigned scan_code)
+MainWindow::native_keypress_event(unsigned scan_code, unsigned modifiers)
 {
+#if defined(Q_OS_MACOS)
+    if (!(scan_code == 0 && modifiers == 0))
+    {
+        // Check the key isn't already marked as held down (else ignore)
+        // (to deal with potentially inconsistent host messages)
+        bool found = (std::find(held_keys.begin(), held_keys.end(), scan_code) != held_keys.end());
+
+        if (!found) {
+            // Add the key to the list of held_keys, that will be released
+            // when the window loses the focus
+            held_keys.insert(held_keys.end(), scan_code);
+
+            emit this->emulator.key_press_signal(scan_code);
+        }
+    }
+#else
+
 	// Check the key isn't already marked as held down (else ignore)
 	// (to deal with potentially inconsistent host messages)
 	bool found = (std::find(held_keys.begin(), held_keys.end(), scan_code) != held_keys.end());
@@ -635,7 +638,9 @@ MainWindow::native_keypress_event(unsigned scan_code)
 		held_keys.insert(held_keys.end(), scan_code);
 //        fprintf(stderr, "native_keypress_event sc=%d\n", scan_code);
 		emit this->emulator.key_press_signal(scan_code);
+
 	}
+#endif
 }
 
 /**
@@ -644,8 +649,26 @@ MainWindow::native_keypress_event(unsigned scan_code)
  * @param scan_code Native scan code of key
  */
 void
-MainWindow::native_keyrelease_event(unsigned scan_code)
+MainWindow::native_keyrelease_event(unsigned scan_code, unsigned modifiers)
 {
+#if defined(Q_OS_MACOS)
+
+    if (!(scan_code == 0 && modifiers == 0))
+    {
+        // Check the key is marked as held down (else ignore)
+        // (to deal with potentially inconsistent host messages)
+        bool found = (std::find(held_keys.begin(), held_keys.end(), scan_code) != held_keys.end());
+
+        if (found) {
+            // Remove the key from the list of held_keys, that will be released
+            // when the window loses the focus
+            held_keys.remove(scan_code);
+
+            emit this->emulator.key_release_signal(scan_code);
+        }
+    }
+
+#else
 	// Check the key is marked as held down (else ignore)
 	// (to deal with potentially inconsistent host messages)
 	bool found = (std::find(held_keys.begin(), held_keys.end(), scan_code) != held_keys.end());
@@ -657,6 +680,7 @@ MainWindow::native_keyrelease_event(unsigned scan_code)
 
 		emit this->emulator.key_release_signal(scan_code);
 	}
+#endif
 }
 
 void
@@ -1407,7 +1431,13 @@ MainWindow::mips_timer_timeout()
 
 	if(!pconfig_copy->mousehackon) {
 		if(mouse_captured) {
+
+#if defined(Q_OS_MACOS)
+            capture_text = " Press CTRL-COMMAND to release mouse";
+#else
 			capture_text = " Press CTRL-END to release mouse";
+#endif
+
 		} else {
 			capture_text = " Click to capture mouse";
 		}
@@ -1510,6 +1540,52 @@ MainWindow::cdrom_menu_selection_update(const QAction *cdrom_action)
 	}
 }
 
+void
+MainWindow::processMagicKeys()
+{
+    if(full_screen) {
+        // Change Full Screen -> Windowed
+
+        display->set_full_screen(false);
+
+        int host_xsize, host_ysize;
+        display->get_host_size(host_xsize, host_ysize);
+        display->setFixedSize(host_xsize, host_ysize);
+
+        menuBar()->setVisible(true);
+        this->showNormal();
+        this->setFixedSize(this->sizeHint());
+
+        full_screen = false;
+
+        // Request redraw of display
+        display->update();
+
+        // If we were in mousehack mode before entering fullscreen
+        // return to it now
+        if(reenable_mousehack) {
+            emit this->emulator.mouse_hack_signal();
+        }
+        reenable_mousehack = false;
+
+        // If we were in mouse capture mode before entering fullscreen
+        // and we hadn't captured the mouse, display the host cursor now
+        if(!config_copy.mousehackon && !mouse_captured) {
+            this->display->setCursor(Qt::ArrowCursor);
+        }
+
+        return;
+    } else if(!pconfig_copy->mousehackon && mouse_captured) {
+        // Turn off mouse capture
+        mouse_captured = 0;
+
+        // show pointer in mouse capture mode when it's not been captured
+        this->display->setCursor(Qt::ArrowCursor);
+
+        return;
+    }
+}
+
 #if defined(Q_OS_WIN32)
 /**
  * windows pre event handler used by us to modify some default behaviour
@@ -1545,9 +1621,9 @@ MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result
 		unsigned scan_code = (unsigned) (msg->lParam >> 16) & 0x1ff;
 
 		if (msg->message == WM_SYSKEYDOWN) {
-			native_keypress_event(scan_code);
+			native_keypress_event(scan_code, 0);
 		} else {
-			native_keyrelease_event(scan_code);
+			native_keyrelease_event(scan_code, 0);
 		}
 		return true;
 	}
@@ -1568,3 +1644,46 @@ MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result
 	return false;
 }
 #endif // Q_OS_WIN32
+
+#if defined(Q_OS_MACOS)
+/**
+ * On OS X, handle additional events for modifier keys.  The normal key press/release
+ * events do not differentiate between left and right.
+ *
+ * @param eventType unused
+ * @param message window event NSEvent data
+ * @param result unused
+ * @return bool of whether we've handled the event (true) or OS X/QT should deal with it (false)
+ */
+bool
+MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result)
+{
+    Q_UNUSED(eventType);
+    Q_UNUSED(result);
+
+    NativeEvent *event = handle_native_event(message);
+    if (!event->processed)
+    {
+        free(event);
+        return false;
+    }
+
+    if (event->eventType == nativeEventTypeModifiersChanged)
+    {
+        // Modifier key state has changed.
+        emit this->emulator.modifier_keys_changed_signal(event->modifierMask);
+
+        if (keyboard_check_special_keys())
+        {
+            // Magic key combination to release mouse capture.
+            processMagicKeys();
+        }
+
+        free(event);
+    }
+
+    return true;
+}
+
+#endif /* Q_OS_MACOS */
+

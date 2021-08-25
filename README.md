@@ -5,8 +5,12 @@ This is the modified version of RPCEmu 0.9.3
 * Mouse wheel scrolling
 * "Startup and Shutdown" options
 * Clipboard integration between Host system and RISCOS (with images and text support)
+* MacOS support
 
 ## Changelog
+### 0.4 (2012-08-25)
+Applied patch for MacOS from https://github.com/Septercius/rpcemu-dev and build RPCEmu-Interpreter and RPCEmu-Recompiler for
+MacOS
 
 ### 0.3 (2021-08-12)
 1. Implemented images support for host<->guest integrated clipboard. Tested on !Paint and !PrivateEye apps.
@@ -25,4 +29,3 @@ Implemented "Startup and Shutdown" options: "Start in full screen" and "Exit RPC
 
 ### 0.1 (2021-06-28)
 Implemented mouse wheel scrolling and text clipboard integration between Host system and RISCOS.
-
