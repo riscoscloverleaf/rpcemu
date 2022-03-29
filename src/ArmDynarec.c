@@ -536,23 +536,6 @@ exception(uint32_t mmode, uint32_t address, uint32_t diff)
 	refillpipeline();
 }
 
-/**
- * An instruction with unpredictable behaviour has been encountered.
- *
- * On real hardware these can have very odd behaviour, so log these in case
- * software is depending on them.
- *
- * @param opcode Opcode of instruction being emulated
- */
-static void
-arm_unpredictable(uint32_t opcode)
-{
-	if (unpredictable_count != 0) {
-		unpredictable_count--;
-		rpclog("ARM: Unpredictable opcode %08x at %08x\n", opcode, PC);
-	}
-}
-
 #if defined __linux__ || defined __MACH__
 /**
  * Grant executable privilege to a region of memory (Unix)
@@ -565,8 +548,9 @@ set_memory_executable(void *ptr, size_t len)
 {
 	const long page_size = sysconf(_SC_PAGESIZE);
 	const long page_mask = ~(page_size - 1);
-	void *start;
+	void *start, *addr;
 	long end;
+    int mmap_flags = 0;
 
 	start = (void *) ((long) ptr & page_mask);
 	end = ((long) ptr + len + page_size - 1) & page_mask;
