@@ -51,6 +51,8 @@ public:
 signals:
 	void finished();
 
+	void video_flyback_signal();
+
 	void key_press_signal(unsigned scan_code);
 
 	void key_release_signal(unsigned scan_code);
@@ -81,10 +83,16 @@ signals:
 	void config_updated_signal(Config *new_config, Model new_model);
 	void network_config_updated_signal(NetworkType network_type, QString bridgename, QString ipaddress);
 	void show_fullscreen_message_off_signal();
-	void clipboard_updated_on_host_signal(QString txt, QByteArray image);
+	void nat_rule_add_signal(PortForwardRule rule);
+	void nat_rule_edit_signal(PortForwardRule old_rule, PortForwardRule new_rule);
+	void nat_rule_remove_signal(PortForwardRule rule);
+
+    void clipboard_updated_on_host_signal(QString txt, QByteArray image);
 
 public slots:
 	void mainemuloop();
+
+	void video_flyback();
 
 	void key_press(unsigned scan_code);
 
@@ -120,6 +128,10 @@ public slots:
 	void config_updated(Config *new_config, Model new_model);
 	void network_config_updated(NetworkType network_type, QString bridgename, QString ipaddress);
 	void show_fullscreen_message_off();
+	void nat_rule_add(PortForwardRule rule);
+	void nat_rule_edit(PortForwardRule old_rule, PortForwardRule new_rule);
+	void nat_rule_remove(PortForwardRule rule);
+
     void clipboard_updated_on_host(QString txt, QByteArray image);
 
 private:

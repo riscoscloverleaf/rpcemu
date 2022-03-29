@@ -376,6 +376,9 @@ rpcemu_video_update(const uint32_t *buffer, int xsize, int ysize,
 
 	// Send update message to GUI
 	emit pMainWin->main_display_signal(video_update);
+
+	// Send flyback message to emulator thread
+	emit emulator->video_flyback_signal();
 }
 
 /**
@@ -396,6 +399,21 @@ rpcemu_move_host_mouse(uint16_t x, uint16_t y)
 
 	// Send message to GUI
 	emit pMainWin->move_host_mouse_signal(mouse_update);
+}
+
+/**
+ * Send a NAT port forwarding rule from the emulator to the GUI thread
+ *
+ * Used on program startup to fill in the GUI with details of the NAT rules from
+ * the config file
+ *
+ * @param rule NAT rule details
+ */
+void
+rpcemu_send_nat_rule_to_gui(PortForwardRule rule)
+{
+	// Send message to GUI thread
+	emit pMainWin->send_nat_rule_to_gui_signal(rule);
 }
 
 /**
@@ -523,6 +541,7 @@ int main (int argc, char ** argv)
 	qRegisterMetaType<VideoUpdate>("VideoUpdate");
 	qRegisterMetaType<MouseMoveUpdate>("MouseMoveUpdate");
 	qRegisterMetaType<NetworkType>("NetworkType");
+	qRegisterMetaType<PortForwardRule>("PortForwardRule");
 
 	// Create Emulator Thread and Object
 	QThread *emu_thread = new QThread;
@@ -570,6 +589,9 @@ int main (int argc, char ** argv)
  */
 Emulator::Emulator()
 {
+	// "Internal" signals from non-GUI threads
+	connect(this, &Emulator::video_flyback_signal, this, &Emulator::video_flyback);
+
 	// Signals from the main GUI window to provide emulated machine input
 	connect(this, &Emulator::key_press_signal,
 	        this, &Emulator::key_press);
@@ -610,6 +632,9 @@ Emulator::Emulator()
 	connect(this, &Emulator::config_updated_signal, this, &Emulator::config_updated);
 	connect(this, &Emulator::network_config_updated_signal, this, &Emulator::network_config_updated);
 	connect(this, &Emulator::show_fullscreen_message_off_signal, this, &Emulator::show_fullscreen_message_off);
+    connect(this, &Emulator::nat_rule_add_signal, this, &Emulator::nat_rule_add);
+    connect(this, &Emulator::nat_rule_edit_signal, this, &Emulator::nat_rule_edit);
+    connect(this, &Emulator::nat_rule_remove_signal, this, &Emulator::nat_rule_remove);
 
 	connect(this, &Emulator::clipboard_updated_on_host_signal, this, &Emulator::clipboard_updated_on_host);
 }
@@ -661,10 +686,11 @@ Emulator::mainemuloop()
 			video_timer_next += (qint64) video_timer_interval;
 		}
 
-		// If the instruction count is greater than 100000, update the shared counter
-		if (inscount >= 100000) {
-			instruction_count.fetchAndAddRelease((int) inscount);
-			inscount = 0;
+		// If the instruction count is greater than or equal to 0x20000, update the shared counter
+		// 'instruction_count' is in multiples of 65536
+		if (inscount >= 0x20000) {
+			instruction_count.fetchAndAddRelease((int) (inscount >> 16));
+			inscount &= 0xffff;
 		}
 
 		// If NAT networking, poll, but not too often
@@ -708,6 +734,17 @@ Emulator::idle_process_events()
 		vblupdate();
 		video_timer_next += (qint64) video_timer_interval;
 	}
+}
+
+/**
+ * Generate video flyback event.
+ *
+ * Triggered by signal when video update completes.
+ */
+void
+Emulator::video_flyback()
+{
+	iomd_flyback(1);
 }
 
 /**
@@ -1091,6 +1128,62 @@ void
 Emulator::show_fullscreen_message_off()
 {
 	config.show_fullscreen_message = 0;
+
+	// Save the settings to the rpc.cfg file
+	config_save(&config);
+}
+
+/**
+ * Recieved NAT rule change from GUI, activate changes, store rule in mem and config file
+ *
+ * @param rule NAT rule details
+ */
+void
+Emulator::nat_rule_add(PortForwardRule rule)
+{
+	// Activate the rule changes
+	network_nat_forward_add(rule);
+
+	// Update the stored list of rules
+	rpcemu_nat_forward_add(rule);
+
+	// Save the settings to the rpc.cfg file
+	config_save(&config);
+}
+
+/**
+ * Recieved NAT rule change from GUI, activate changes, store rule in mem and config file
+ *
+ * @param old_rule removed NAT rule details
+ * @param new_rule added NAT rule details
+ */
+void
+Emulator::nat_rule_edit(PortForwardRule old_rule, PortForwardRule new_rule)
+{
+	// Activate the rule changes
+	network_nat_forward_edit(old_rule, new_rule);
+
+	// Update the stored list of rules
+	rpcemu_nat_forward_remove(old_rule);
+	rpcemu_nat_forward_add(new_rule);
+
+	// Save the settings to the rpc.cfg file
+	config_save(&config);
+}
+
+/**
+ * Recieved NAT rule change from GUI, activate changes, store rule in mem and config file
+ *
+ * @param rule NAT rule details
+ */
+void
+Emulator::nat_rule_remove(PortForwardRule rule)
+{
+	// Activate the rule changes
+	network_nat_forward_remove(rule);
+
+	// Update the stored list of rules
+	rpcemu_nat_forward_remove(rule);
 
 	// Save the settings to the rpc.cfg file
 	config_save(&config);

@@ -28,6 +28,7 @@
 
 #include "configure_dialog.h"
 #include "network_dialog.h"
+#include "nat_list_dialog.h"
 #include "about_dialog.h"
 #include "rpc-qt5.h"
 
@@ -129,6 +130,7 @@ private slots:
 	void menu_configure();
 #ifdef RPCEMU_NETWORKING
 	void menu_networking();
+	void menu_nat_list();
 #endif /* RPCEMU_NETWORKING */
 	void menu_fullscreen();
 	void menu_cpu_idle();
@@ -144,6 +146,7 @@ private slots:
 
 	void main_display_update(VideoUpdate video_update);
 	void move_host_mouse(MouseMoveUpdate mouse_update);
+	void send_nat_rule_to_gui(PortForwardRule rule);
 
 	// MIPS counting
 	void mips_timer_timeout();
@@ -157,6 +160,8 @@ private slots:
 signals:
 	void main_display_signal(VideoUpdate video_update);
 	void move_host_mouse_signal(MouseMoveUpdate mouse_update);
+    void send_nat_rule_to_gui_signal(PortForwardRule rule);
+
     void guest_clipboard_data_changed_signal(QString text, QImage img);
 
 	void error_signal(QString error);
@@ -218,6 +223,7 @@ private:
 	QAction *configure_action;
 #ifdef RPCEMU_NETWORKING
 	QAction *networking_action;
+	QAction *nat_list_action;
 #endif /* RPCEMU_NETWORKING */
 	QAction *fullscreen_action;
 	QAction *cpu_idle_action;
@@ -232,6 +238,7 @@ private:
 	// Dialogs
 	ConfigureDialog *configure_dialog;
 	NetworkDialog *network_dialog;
+	NatListDialog *nat_list_dialog;
 	AboutDialog *about_dialog;
 
 	// Pointer to emulator instance

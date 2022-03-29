@@ -82,6 +82,9 @@
 
 #define PS2_QUEUE_SIZE 256
 
+int kcallback = 0;
+int mcallback = 0;
+
 typedef struct {
 	uint8_t	data[PS2_QUEUE_SIZE];
 	int	rptr, wptr, count;

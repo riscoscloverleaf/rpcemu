@@ -30,6 +30,10 @@ HEADERS =	../superio.h \
 		../vidc20.h \
 		../arm_common.h \
 		../arm.h \
+		../disc.h \
+		../disc_adf.h \
+		../disc_hfe.h \
+		../disc_mfm_common.h \
 		main_window.h \
 		configure_dialog.h \
 		about_dialog.h \
@@ -57,6 +61,10 @@ SOURCES =	../superio.c \
 		../rpc-machdep.c \
 		../arm_common.c \
 		../i8042.c \
+		../disc.c \
+		../disc_adf.c \
+		../disc_hfe.c \
+		../disc_mfm_common.c \
 		../hostclipboard.c \
 		settings.cpp \
 		rpc-qt5.cpp \
@@ -67,8 +75,12 @@ SOURCES =	../superio.c \
 
 # NAT Networking
 linux | win32 | macx {
-	HEADERS +=	../network-nat.h
-	SOURCES += 	../network-nat.c
+	HEADERS +=	../network-nat.h \
+			nat_edit_dialog.h \
+			nat_list_dialog.h
+	SOURCES += 	../network-nat.c \
+			nat_edit_dialog.cpp \
+			nat_list_dialog.cpp
 
 	HEADERS += 	../slirp/bootp.h \
 			../slirp/cutils.h \

@@ -1,14 +1,18 @@
 # rpcemu
 RPCEmu is an emulator of Acorn's Risc PC and A7000 machines. With Cloverleaf patches.
 
-This is the modified version of RPCEmu 0.9.3
+This is the modified version of RPCEmu 0.9.4
 * Mouse wheel scrolling
 * "Startup and Shutdown" options
 * Clipboard integration between Host system and RISCOS (with images and text support)
 * MacOS support
 
 ## Changelog
-### 0.4 (2012-08-25)
+
+### 0.5 (2022-03-28)
+Updated to 0.9.4 from original sources
+
+### 0.4 (2021-08-25)
 Applied patch for MacOS from https://github.com/Septercius/rpcemu-dev and build RPCEmu-Interpreter and RPCEmu-Recompiler for
 MacOS
 
